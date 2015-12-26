@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 /**
  * @author Ilya Isaev
  */
-public class FeedReceiverForm {
+public class FeedReceiverWindow {
     private JList feedList;
     private JList newsList;
     private JPanel rootPanel;
@@ -27,7 +27,7 @@ public class FeedReceiverForm {
     private Executor excutor = Executors.newSingleThreadExecutor();
     private volatile Subscription currentSubscription;
 
-    public FeedReceiverForm() {
+    public FeedReceiverWindow() {
         feedList.setModel(feedListModel);
         newsList.setModel(newsListModel);
         new Thread(() -> {
@@ -62,8 +62,8 @@ public class FeedReceiverForm {
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("FeedReceiverForm");
-        frame.setContentPane(new FeedReceiverForm().rootPanel);
+        JFrame frame = new JFrame("FeedReceiverWindow");
+        frame.setContentPane(new FeedReceiverWindow().rootPanel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
         frame.setLocationRelativeTo(null);

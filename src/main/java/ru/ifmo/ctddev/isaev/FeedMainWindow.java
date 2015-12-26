@@ -98,7 +98,7 @@ public class FeedMainWindow {
         frame.pack();
         frame.setVisible(true);
         SwingUtilities.invokeLater(() -> {
-            FeedReceiverForm.main(new String[]{});
+            FeedReceiverWindow.main(new String[]{});
         });
     }
 
