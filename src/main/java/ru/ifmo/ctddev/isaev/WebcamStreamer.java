@@ -35,13 +35,13 @@ public class WebcamStreamer {
         webcam.setViewSize(new Dimension(176, 144));
         webcam.open();
 
-        JFrame window = new JFrame("Video chat (for deaf-mutes)");
-        Container pane = window.getContentPane();
-        pane.setLayout(new GridBagLayout());
+        JFrame frame = new JFrame("Video chat (for deaf-mutes)");
+        Container pane = frame.getContentPane();
 
-        window.setResizable(true);
-        window.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        window.setVisible(true);
+        frame.setResizable(true);
+        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        frame.pack();
+        frame.setVisible(true);
 
         new Thread(() -> {
             while (true) {
@@ -64,16 +64,18 @@ public class WebcamStreamer {
 
         new Thread(() -> {
 
-            GridBagConstraints c = new GridBagConstraints();
-            c.fill = GridBagConstraints.HORIZONTAL;
-
             while (true) {
                 try {
                     messenger.discoverFeeds().get().forEach(f -> {
                         if (!faces.containsKey(f.getTopic())) {
                             JLabel picLabel = new JLabel();
-                            pane.add(picLabel, c);
-                            window.pack();
+                            picLabel.setText("<html><b>" + f.getTopic() + "</b></html>");
+                            picLabel.setHorizontalTextPosition(JLabel.CENTER);
+                            picLabel.setVerticalTextPosition(JLabel.BOTTOM);
+                            pane.add(picLabel);
+                            frame.validate();
+                            frame.repaint();
+                            frame.pack();
                             faces.put(f.getTopic(), picLabel);
                             messenger.subscribe(f, (msg, subscription) -> {
                                 logger.info("Message received!");
