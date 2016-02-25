@@ -1,5 +1,6 @@
 package ru.ifmo.ctddev.isaev;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.zyulyaev.ifmo.net.multicast.impl.MulticastMessenger;
 
 import java.io.IOException;
@@ -11,6 +12,8 @@ public class ConfiguredMessenger {
     public static final MulticastMessenger INSTANCE;
 
     private static final int PORT = 4000;
+
+    public static final ObjectMapper MAPPER = new ObjectMapper();
 
     static {
         try {
