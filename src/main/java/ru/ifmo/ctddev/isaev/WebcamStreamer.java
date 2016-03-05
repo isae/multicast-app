@@ -24,6 +24,8 @@ import java.util.concurrent.ExecutionException;
 public class WebcamStreamer {
     private static final Logger logger = LoggerFactory.getLogger(WebcamStreamer.class);
 
+    private static int latency;
+
     private static void doMain() throws ExecutionException, InterruptedException {
 
         Map<String, JLabel> faces = new ConcurrentHashMap<>();
@@ -36,6 +38,10 @@ public class WebcamStreamer {
         webcam.open();
 
         JFrame frame = new JFrame("Video chat (for deaf-mutes)");
+
+        JFrame.setDefaultLookAndFeelDecorated(true);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new GridLayout(3, 3));
         Container pane = frame.getContentPane();
 
         frame.setResizable(true);
@@ -53,7 +59,7 @@ public class WebcamStreamer {
                         byte[] bytes = baos.toByteArray();
                         messenger.sendMessage(feed, bytes);
                         logger.info("Message sent!");
-                        Thread.sleep(50);
+                        Thread.sleep(latency);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -78,7 +84,7 @@ public class WebcamStreamer {
                             frame.pack();
                             faces.put(f.getTopic(), picLabel);
                             messenger.subscribe(f, (msg, subscription) -> {
-                                logger.info("Message received!");
+                                logger.info("Message received! from " + f.getTopic());
                                 JLabel face = faces.get(f.getTopic());
                                 try {
                                     face.setIcon(new ImageIcon(ImageIO.read(new ByteArrayInputStream(msg))));
@@ -97,6 +103,8 @@ public class WebcamStreamer {
     }
 
     public static void main(String[] args) throws Exception {
+
+        latency = Integer.valueOf(args[0]);
 
         javax.swing.SwingUtilities.invokeLater(() -> {
             try {
