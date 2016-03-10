@@ -26,9 +26,20 @@ public class WebcamStreamer {
 
     private static int latency;
 
+    private static final int DISCONNECT_TIMEOUT = 20000;
+
+    public static BufferedImage getGrayScale(BufferedImage inputImage) {
+        BufferedImage img = new BufferedImage(inputImage.getWidth(), inputImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        Graphics g = img.getGraphics();
+        g.drawImage(inputImage, 0, 0, null);
+        g.dispose();
+        return img;
+    }
+
     private static void doMain() throws ExecutionException, InterruptedException {
 
         Map<String, JLabel> faces = new ConcurrentHashMap<>();
+        Map<String, Long> lastMessages = new ConcurrentHashMap<>();
 
         MulticastMessenger messenger = ConfiguredMessenger.INSTANCE;
         String username = System.getProperty("user.name");
@@ -40,13 +51,13 @@ public class WebcamStreamer {
         JFrame frame = new JFrame("Video chat (for deaf-mutes)");
 
         JFrame.setDefaultLookAndFeelDecorated(true);
+        frame.setMinimumSize(new Dimension(800, 600));
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new GridLayout(3, 3));
         Container pane = frame.getContentPane();
 
         frame.setResizable(true);
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.pack();
         frame.setVisible(true);
 
         new Thread(() -> {
@@ -67,7 +78,23 @@ public class WebcamStreamer {
             }
         }).start(); // streamer
 
-
+        new Thread(() -> {
+            while (true) {
+                try {
+                    lastMessages.keySet().stream()
+                            .filter(topic -> System.currentTimeMillis() - lastMessages.get(topic) > DISCONNECT_TIMEOUT)
+                            .forEach(topic -> {
+                                JLabel face = faces.get(topic);
+                                ImageIcon imageIcon = (ImageIcon) face.getIcon();
+                                face.setIcon(new ImageIcon(getGrayScale((BufferedImage) imageIcon.getImage())));
+                                lastMessages.remove(topic);
+                            });
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
         new Thread(() -> {
 
             while (true) {
@@ -81,9 +108,11 @@ public class WebcamStreamer {
                             pane.add(picLabel);
                             frame.validate();
                             frame.repaint();
-                            frame.pack();
                             faces.put(f.getTopic(), picLabel);
+                        }
+                        if (!lastMessages.containsKey(f.getTopic())) {
                             messenger.subscribe(f, (msg, subscription) -> {
+                                lastMessages.put(f.getTopic(), System.currentTimeMillis());
                                 logger.info("Message received! from " + f.getTopic());
                                 JLabel face = faces.get(f.getTopic());
                                 try {
