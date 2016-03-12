@@ -4,6 +4,7 @@ import com.github.sarxos.webcam.Webcam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.zyulyaev.ifmo.net.multicast.api.Feed;
+import ru.zyulyaev.ifmo.net.multicast.api.FeedsMonitor;
 import ru.zyulyaev.ifmo.net.multicast.impl.MulticastMessenger;
 
 import javax.imageio.ImageIO;
@@ -25,8 +26,6 @@ public class WebcamStreamer {
     private static final Logger logger = LoggerFactory.getLogger(WebcamStreamer.class);
 
     private static int latency;
-
-    private static final int DISCONNECT_TIMEOUT = 20000;
 
     public static BufferedImage getGrayScale(BufferedImage inputImage) {
         BufferedImage img = new BufferedImage(inputImage.getWidth(), inputImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
@@ -60,7 +59,7 @@ public class WebcamStreamer {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setVisible(true);
 
-        new Thread(() -> {
+        Thread streamer = new Thread(() -> {
             while (true) {
                 BufferedImage image = webcam.getImage();
                 try {
@@ -76,59 +75,47 @@ public class WebcamStreamer {
                     e.printStackTrace();
                 }
             }
-        }).start(); // streamer
+        });
+        streamer.setDaemon(true);
+        streamer.start();
 
-        new Thread(() -> {
-            while (true) {
-                try {
-                    lastMessages.keySet().stream()
-                            .filter(topic -> System.currentTimeMillis() - lastMessages.get(topic) > DISCONNECT_TIMEOUT)
-                            .forEach(topic -> {
-                                JLabel face = faces.get(topic);
-                                ImageIcon imageIcon = (ImageIcon) face.getIcon();
-                                face.setIcon(new ImageIcon(getGrayScale((BufferedImage) imageIcon.getImage())));
-                                lastMessages.remove(topic);
-                            });
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+        messenger.addFeedsMonitor(new FeedsMonitor() {
+            @Override
+            public void feedAppeared(Feed feed) {
+                String topic = feed.getTopic();
+                if (!faces.containsKey(topic)) {
+                    JLabel picLabel = new JLabel();
+                    picLabel.setText("<html><b>" + topic + "</b></html>");
+                    picLabel.setHorizontalTextPosition(JLabel.CENTER);
+                    picLabel.setVerticalTextPosition(JLabel.BOTTOM);
+                    pane.add(picLabel);
+                    frame.validate();
+                    frame.repaint();
+                    faces.put(topic, picLabel);
                 }
-            }
-        }).start();
-        new Thread(() -> {
-
-            while (true) {
-                try {
-                    messenger.discoverFeeds().get().forEach(f -> {
-                        if (!faces.containsKey(f.getTopic())) {
-                            JLabel picLabel = new JLabel();
-                            picLabel.setText("<html><b>" + f.getTopic() + "</b></html>");
-                            picLabel.setHorizontalTextPosition(JLabel.CENTER);
-                            picLabel.setVerticalTextPosition(JLabel.BOTTOM);
-                            pane.add(picLabel);
-                            frame.validate();
-                            frame.repaint();
-                            faces.put(f.getTopic(), picLabel);
-                        }
-                        if (!lastMessages.containsKey(f.getTopic())) {
-                            messenger.subscribe(f, (msg, subscription) -> {
-                                lastMessages.put(f.getTopic(), System.currentTimeMillis());
-                                logger.info("Message received! from " + f.getTopic());
-                                JLabel face = faces.get(f.getTopic());
-                                try {
-                                    face.setIcon(new ImageIcon(ImageIO.read(new ByteArrayInputStream(msg))));
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            });
+                if (!lastMessages.containsKey(topic)) {
+                    messenger.subscribe(feed, (msg, subscription) -> {
+                        lastMessages.put(topic, System.currentTimeMillis());
+                        logger.info("Message received! from " + topic);
+                        JLabel face = faces.get(topic);
+                        try {
+                            face.setIcon(new ImageIcon(ImageIO.read(new ByteArrayInputStream(msg))));
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
                     });
-                    Thread.sleep(5000);
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
                 }
             }
-        }).start(); // receiver
+
+            @Override
+            public void feedDisappeared(Feed feed) {
+                String topic = feed.getTopic();
+                JLabel face = faces.get(topic);
+                ImageIcon imageIcon = (ImageIcon) face.getIcon();
+                face.setIcon(new ImageIcon(getGrayScale((BufferedImage) imageIcon.getImage())));
+                lastMessages.remove(topic);
+            }
+        });
     }
 
     public static void main(String[] args) throws Exception {
